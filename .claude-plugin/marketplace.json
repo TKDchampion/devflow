@@ -1,0 +1,13 @@
+{
+  "name": "devflow-local",
+  "description": "Local marketplace for the devflow development workflow plugin.",
+  "owner": {
+    "name": "Project Maintainers"
+  },
+  "plugins": [
+    {
+      "name": "devflow",
+      "source": "./"
+    }
+  ]
+}

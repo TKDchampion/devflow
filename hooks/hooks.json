@@ -1,0 +1,17 @@
+{
+  "description": "Format edited source files with formatters already installed by the target project.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/format-after-edit.mjs"]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "devflow",
+  "description": "Readable Traditional Chinese development workflow with visible plans, per-plan reviews, suggested code fixes, and mandatory human confirmation before every commit.",
+  "version": "1.3.0",
+  "author": {
+    "name": "Project Maintainers"
+  }
+}
