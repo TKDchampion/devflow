@@ -11,7 +11,7 @@ Assess whether `$ARGUMENTS` is genuinely complete.
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/response-style.md` before producing user-facing output.
 
-1. Inspect the final working-tree status and commit history. Separate task changes from unrelated user changes.
+1. Inspect the final working-tree status and commit history. Separate task changes from unrelated user changes. Confirm the plan commits are on the branch recorded in the approved plan set's `分支` field.
 2. Confirm every approved plan ran in order and has a `計畫檢查點` record.
 3. Confirm each approved plan committed the exact reviewed diff only after a separate explicit user commit confirmation. A 🟡 黃燈 plan must also record acceptance of its exact residual risks. No 🔴 紅燈 plan or synthetic no-commit outcome may be complete.
 4. Confirm the combined implementation matches the selected solution and acceptance criteria.

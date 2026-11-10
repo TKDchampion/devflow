@@ -40,7 +40,8 @@ devflow/
 │   ├── performance-review/SKILL.md
 │   ├── test-review/SKILL.md
 │   ├── improve/SKILL.md
-│   └── finish/SKILL.md
+│   ├── finish/SKILL.md
+│   └── rules/SKILL.md
 ├── agents/
 │   ├── architecture-reviewer.md
 │   ├── code-reviewer.md
@@ -52,11 +53,19 @@ devflow/
 │   ├── gate-contracts.md
 │   ├── review-severity.md
 │   ├── response-style.md
+│   ├── rule-slots.md
 │   └── tool-strategy.md
+├── rules/
+│   ├── branching.md
+│   ├── review-routing.md
+│   └── commit-message.md
+├── examples/
+│   └── overrides/
 ├── hooks/
 │   └── hooks.json
 ├── scripts/
-│   └── format-after-edit.mjs
+│   ├── format-after-edit.mjs
+│   └── resolve-rules.mjs
 ├── README.md
 └── CUSTOMIZATION_GUIDE.md
 ```
@@ -106,6 +115,8 @@ USER DECISION
 Execution Plan Set（非平凡任務切成多段）
     ↓
 PLAN-SET APPROVAL
+    ↓
+Branch（依 branching 規則；預設留在目前分支）
     ↓
 [單一 Plan: Implement → Validate → Verify → Stage Diff
  → Independent + Specialist Review → 🟢/🟡/🔴 Gate
@@ -728,6 +739,45 @@ HIGH hard triggers 包括：
 
 Claude Code 新增、移除或改名內建能力時，應檢查此檔案。Plugin 改名時，這裡的 namespace 也必須同步。
 
+## Rules：可覆寫的規則插槽
+
+規則插槽讓公司、個人或專案在不修改 plugin 的情況下調整特定動作。目前有三個插槽：`branching`、`review-routing`、`commit-message`。使用者端的設定方式見 README 的「覆寫分支、Review 與 Commit 規則」；本節說明維護時要動哪些檔案。
+
+### `rules/<slot>.md`
+
+每個插槽的內建預設，也是覆寫檔不存在時唯一生效的規則。修改預設行為時改這裡，不要把預設寫回 `SKILL.md`。
+
+### `scripts/resolve-rules.mjs`
+
+依「內建 → `DEVFLOW_ORG_DIR` → `~/.devflow/projects/<name>/`（以 `project.md` 的 `remote` 對應）→ `<repo>/.devflow/rules/`」合併規則，輸出每段規則的來源、警告，以及不可覆寫的底線。
+
+- 支援的插槽清單寫在檔案開頭的 `SLOTS`。
+- 腳本一律以 exit code 0 結束，因為 skill 的 `` !`command` `` 注入只要指令失敗，整個 skill 就不會載入；問題改用 `規則警告` 區段回報。
+- `DEVFLOW_HOME` 可取代 `~/.devflow`，方便測試。
+
+### `references/rule-slots.md`
+
+說明各插槽由哪個 skill 套用、如何合併規則，以及哪些核心關卡不能被規則放寬。
+
+### 讀取規則的 Skills
+
+| Skill | 注入的插槽 |
+|---|---|
+| `develop` | `branching`、`review-routing`、`commit-message` |
+| `plan` | `branching`、`commit-message` |
+| `checkpoint` | `review-routing`、`commit-message` |
+| `rules` | 全部 |
+
+這些 Skill 用 `` !`node ${CLAUDE_PLUGIN_ROOT}/scripts/resolve-rules.mjs ...` `` 在載入時注入生效規則，並在 `allowed-tools` 預先核准同一個指令前綴。如果注入沒有出現，Skill 會改用 Bash 執行同一個指令。
+
+### 新增插槽
+
+1. 在 `rules/` 新增 `<slot>.md` 作為預設。
+2. 把插槽名稱加進 `scripts/resolve-rules.mjs` 的 `SLOTS`。
+3. 在 `references/rule-slots.md` 的插槽表寫出負責套用的 Skill。
+4. 在該 Skill 的注入指令加上插槽名稱，並說明如何套用。
+5. 更新 README、README_TW 與 `examples/overrides/`。
+
 ## Hooks：自動事件
 
 ### `hooks/hooks.json`
@@ -818,6 +868,9 @@ Node.js 腳本，從 stdin 讀取 Claude Code Hook 傳入的 JSON，取得被修
 | 改 formatter 支援 | `scripts/format-after-edit.mjs` | Hook 說明、README |
 | 改 Definition of Done | `skills/finish/SKILL.md` | `skills/develop`、review severity |
 | 改 review loop 次數 | `skills/develop/SKILL.md` | `skills/improve` 的文字是否仍一致 |
+| 改分支、specialist review 選擇或 commit message 的預設 | `rules/<slot>.md` | `references/rule-slots.md`、README |
+| 新增規則插槽 | `scripts/resolve-rules.mjs` 的 `SLOTS`、`rules/<slot>.md` | `references/rule-slots.md`、負責的 Skill、`examples/overrides/` |
+| 改規則查找位置或合併方式 | `scripts/resolve-rules.mjs` | `references/rule-slots.md`、README、`skills/rules` |
 
 ## 建議的手動修改流程
 
@@ -878,15 +931,22 @@ agents/<name>.md
 node --check devflow/scripts/format-after-edit.mjs
 ```
 
-### 檢查 ZIP
+### 建立與檢查 ZIP
 
-重新壓縮後執行：
+不要用 Finder 的「壓縮」：它會把 `.claude/worktrees/` 裡的 worktree 副本和 `__MACOSX/` 一起打包，上傳時會出現 `Zip must contain exactly one plugin.json. Found 2.`。請在 plugin 根目錄執行：
 
 ```bash
-unzip -t devflow.zip
+zip -qrX ../devflow.zip . -x '.git' '.git/*' '.claude/*' '*.DS_Store' '__MACOSX/*' '*.zip'
 ```
 
-確認壓縮檔沒有 `.DS_Store`、暫存檔、測試產物或其他不需要交付的內容。
+ZIP 根目錄必須直接是 `.claude-plugin/plugin.json`，不能多一層 `devflow/` 資料夾。壓縮後確認：
+
+```bash
+unzip -t ../devflow.zip
+unzip -l ../devflow.zip | grep plugin.json
+```
+
+第二個指令只能出現一行 `.claude-plugin/plugin.json`，也不能有 `.DS_Store`、暫存檔、測試產物或其他不需要交付的內容。
 
 ### 實際載入測試
 

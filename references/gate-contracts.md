@@ -67,6 +67,7 @@ Only an explicit user message selects an option. A recommendation is not approva
 執行計畫組
 已選方案：...
 核准狀態：等待使用者 | 已核准
+分支：沿用 <current branch> | 建立 <new branch>，base <ref>（規則來源：...）
 計畫數量：...
 
 計畫 1 — <name>
@@ -85,7 +86,7 @@ Only an explicit user message selects an option. A recommendation is not approva
 跨計畫回復方式：...
 ```
 
-Each plan is an ordered, independently reviewable and committable unit. Approval applies to the complete plan set, scopes, and proposed commit messages. Plan-set approval never authorizes `git commit`; every plan requires a separate explicit user confirmation after its exact staged diff and review result are shown. It also does not authorize scope expansion, force-push, push, merge, deploy, or unrelated changes.
+Each plan is an ordered, independently reviewable and committable unit. Approval applies to the complete plan set, the branch action, scopes, and proposed commit messages. Plan-set approval never authorizes `git commit`; every plan requires a separate explicit user confirmation after its exact staged diff and review result are shown. It also does not authorize scope expansion, force-push, push, merge, deploy, or unrelated changes.
 
 ## Validation contract
 

@@ -20,6 +20,7 @@
 - [Reviewer Agents 一覽](#reviewer-agents-一覽)
 - [自動格式化 Hook](#自動格式化-hook)
 - [實際使用範例](#實際使用範例)
+- [覆寫分支、Review 與 Commit 規則](#覆寫分支review-與-commit-規則)
 - [如何自訂](#如何自訂)
 - [驗證與疑難排解](#驗證與疑難排解)
 
@@ -28,7 +29,8 @@
 這個 plugin 包含：
 
 - 1 個總控 Skill：`develop`
-- 15 個可獨立使用的品質關卡 Skills
+- 15 個可獨立使用的品質關卡 Skills，以及查看生效規則的 `rules`
+- 可由公司、個人或專案覆寫的分支、review 與 commit message 規則，沒覆寫的部分自動走預設
 - 5 個獨立 reviewer agents
 - LOW、MEDIUM、HIGH 三級風險路由
 - Solution／Trade-off／User Decision checkpoint
@@ -342,6 +344,7 @@ B
 | `test-review`        | 驗證測試是否真正覆蓋需求與風險                        | 否                        |
 | `improve`            | 修正成立的 findings 並重新驗證                        | 是                        |
 | `finish`             | 確認每個 plan 的 review signal、commit 與最終狀態     | 否                        |
+| `rules`              | 顯示目前專案生效的覆寫規則與來源                      | 否                        |
 
 完整呼叫格式是：
 
@@ -472,6 +475,63 @@ Findings 會使用下列分級：
 - P3：非阻塞 cleanup 或 clarity improvement
 
 結果會再對應成 🟢 綠燈、🟡 黃燈或 🔴 紅燈。單獨執行 `/devflow:review` 只輸出 review 與 commit gate，不會自行修改或 commit；若有明確修法，可附上尚未套用的 code／diff 範例。
+
+## 覆寫分支、Review 與 Commit 規則
+
+devflow 有三個「規則插槽」，公司或專案可以只覆寫需要的部分，不用修改 plugin 本體；沒有覆寫的插槽自動使用內建預設。
+
+| 插槽 | 控制什麼 | 內建預設 |
+|---|---|---|
+| `branching` | 要不要切分支、分支名稱、從哪裡切 | 留在目前分支 |
+| `review-routing` | 每個 plan 要加跑哪些 specialist review | 依風險與 diff 內容選擇 security／performance／test review |
+| `commit-message` | commit message 格式與語言 | 沿用 repository 既有慣例 |
+
+### 規則放在哪裡
+
+由低到高，越後面優先：
+
+1. **內建**：plugin 的 `rules/<slot>.md`
+2. **公司層**：環境變數 `DEVFLOW_ORG_DIR` 指向的資料夾，例如在 `~/.claude/settings.json` 的 `env` 設定，或由公司的 managed settings 統一發佈
+3. **個人專案層**：`~/.devflow/projects/<任意名稱>/`，用資料夾內 `project.md` 的 `remote` 對應專案；不進 repo，所有 worktree 都讀得到
+4. **repo 專案層**：`<repo>/.devflow/rules/`，提交後團隊共用
+
+### 覆寫檔格式
+
+每個插槽一個檔案，檔名就是插槽名稱。frontmatter 的 `mode` 決定合併方式：
+
+- `extend`（預設）：保留較低層規則，再疊加這份。
+- `replace`：捨棄較低層規則，只用這份。
+
+```markdown
+---
+mode: extend
+---
+
+- staged diff 動到 `src/payment/**` 時，一律執行 `devflow:security-review`。
+```
+
+個人專案層還需要一個 `project.md` 標示對應的 remote：
+
+```markdown
+---
+remote:
+  - git@github.com:your-org/M1.git
+---
+```
+
+完整範例在 [`examples/overrides/`](examples/overrides/)。
+
+### 檢查規則是否生效
+
+```text
+/devflow:rules
+```
+
+會列出偵測到的專案與 remote、每個插槽目前生效的規則和來源，以及檔名打錯、`mode` 無效、找不到資料夾等警告。
+
+### 不能覆寫的部分
+
+規則只能調整自己負責的動作，不能放寬核心關卡：方案選擇與計畫核准需要你明確回覆、每個 plan 都要獨立 review、🔴 紅燈不能 commit、每次 commit 都要你另外確認、不會自動 push／merge／rebase／deploy。規則與這些關卡衝突時，衝突的部分會被忽略並告知你。
 
 ## 如何自訂
 

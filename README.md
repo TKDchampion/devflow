@@ -20,6 +20,7 @@ The most important rule: both the solution choice and the plan approval require 
 - [Reviewer agents reference](#reviewer-agents-reference)
 - [Auto-format hook](#auto-format-hook)
 - [Worked examples](#worked-examples)
+- [Override branching, review, and commit rules](#override-branching-review-and-commit-rules)
 - [Customization](#customization)
 - [Validation and troubleshooting](#validation-and-troubleshooting)
 - [Official documentation](#official-documentation)
@@ -29,7 +30,8 @@ The most important rule: both the solution choice and the plan approval require 
 This plugin ships:
 
 - 1 orchestrator skill: `develop`
-- 15 quality-gate skills that can also be used on their own
+- 15 quality-gate skills that can also be used on their own, plus `rules` to inspect the effective rules
+- Branching, review-routing, and commit-message rules that an organization, a user, or a project can override, with built-in defaults for anything not overridden
 - 5 standalone reviewer agents
 - LOW / MEDIUM / HIGH risk routing
 - A Solution / Trade-off / User Decision checkpoint
@@ -345,6 +347,7 @@ Reply in the same Claude Code session so the original skill instructions and dec
 | `test-review` | Check whether tests really cover the requirement and the risks | No |
 | `improve` | Fix valid findings and re-validate | Yes |
 | `finish` | Confirm each plan's review signal, commit, and final state | No |
+| `rules` | Show the override rules in effect for the current project and where each comes from | No |
 
 The full invocation format is:
 
@@ -475,6 +478,63 @@ Findings use these severities:
 - P3: non-blocking cleanup or clarity improvement
 
 These map back to a 🟢 green, 🟡 yellow, or 🔴 red signal. Running `/devflow:review` on its own only produces the review and the commit gate — it will not modify code or commit by itself, though it may attach a not-yet-applied code/diff sample when the fix is clear.
+
+## Override branching, review, and commit rules
+
+devflow has three rule slots. An organization or project overrides only the slots it needs, without editing the plugin; every slot it leaves alone uses the built-in default.
+
+| Slot | Controls | Built-in default |
+|---|---|---|
+| `branching` | Whether to create a branch, its name, and its base | Stay on the current branch |
+| `review-routing` | Which specialist reviews run for each plan | Security, performance, or test review chosen from risk and diff content |
+| `commit-message` | Commit message format and language | Follow the repository's existing convention |
+
+### Where rules live
+
+Lowest to highest priority:
+
+1. **Built-in**: the plugin's `rules/<slot>.md`
+2. **Organization**: the folder named by the `DEVFLOW_ORG_DIR` environment variable, set for example in the `env` block of `~/.claude/settings.json` or distributed through managed settings
+3. **User project**: `~/.devflow/projects/<any-name>/`, matched to a repository by the `remote` list in that folder's `project.md`. It stays outside the repository, so every worktree sees it
+4. **Repository**: `<repo>/.devflow/rules/`, committed and shared with the team
+
+### Override file format
+
+One file per slot, named after the slot. The frontmatter `mode` sets how it merges:
+
+- `extend` (default): keep lower layers and append this file.
+- `replace`: discard lower layers and use only this file.
+
+```markdown
+---
+mode: extend
+---
+
+- Always run `devflow:security-review` when the staged diff touches `src/payment/**`.
+```
+
+The user-project layer also needs a `project.md` naming the matching remote:
+
+```markdown
+---
+remote:
+  - git@github.com:your-org/M1.git
+---
+```
+
+Complete examples are in [`examples/overrides/`](examples/overrides/).
+
+### Check what is in effect
+
+```text
+/devflow:rules
+```
+
+It lists the detected project and remote, the effective rules for each slot with their source, and warnings such as a misspelled filename, an invalid `mode`, or a missing folder.
+
+### What cannot be overridden
+
+Rules only tune their own action. They never relax the core gates: explicit replies for the solution choice and plan-set approval, independent review of every plan, no commit on 🔴 red, a separate confirmation for every commit, and no automatic push, merge, rebase, or deploy. Any part of a rule that conflicts with these gates is ignored and reported.
 
 ## Customization
 
