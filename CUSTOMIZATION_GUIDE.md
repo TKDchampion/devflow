@@ -41,7 +41,10 @@ devflow/
 │   ├── test-review/SKILL.md
 │   ├── improve/SKILL.md
 │   ├── finish/SKILL.md
-│   └── rules/SKILL.md
+│   ├── branch/SKILL.md
+│   ├── commit/SKILL.md
+│   ├── review-routing/SKILL.md
+│   └── overrides/SKILL.md
 ├── agents/
 │   ├── architecture-reviewer.md
 │   ├── code-reviewer.md
@@ -53,19 +56,15 @@ devflow/
 │   ├── gate-contracts.md
 │   ├── review-severity.md
 │   ├── response-style.md
-│   ├── rule-slots.md
+│   ├── skill-overrides.md
 │   └── tool-strategy.md
-├── rules/
-│   ├── branching.md
-│   ├── review-routing.md
-│   └── commit-message.md
 ├── examples/
-│   └── overrides/
+│   └── skill-overrides/
 ├── hooks/
 │   └── hooks.json
 ├── scripts/
 │   ├── format-after-edit.mjs
-│   └── resolve-rules.mjs
+│   └── list-overrides.mjs
 ├── README.md
 └── CUSTOMIZATION_GUIDE.md
 ```
@@ -116,7 +115,7 @@ Execution Plan Set（非平凡任務切成多段）
     ↓
 PLAN-SET APPROVAL
     ↓
-Branch（依 branching 規則；預設留在目前分支）
+Branch（devflow:branch；預設留在目前分支）
     ↓
 [單一 Plan: Implement → Validate → Verify → Stage Diff
  → Independent + Specialist Review → 🟢/🟡/🔴 Gate
@@ -739,44 +738,26 @@ HIGH hard triggers 包括：
 
 Claude Code 新增、移除或改名內建能力時，應檢查此檔案。Plugin 改名時，這裡的 namespace 也必須同步。
 
-## Rules：可覆寫的規則插槽
 
-規則插槽讓公司、個人或專案在不修改 plugin 的情況下調整特定動作。目前有三個插槽：`branching`、`review-routing`、`commit-message`。使用者端的設定方式見 README 的「覆寫分支、Review 與 Commit 規則」；本節說明維護時要動哪些檔案。
 
-### `rules/<slot>.md`
 
-每個插槽的內建預設，也是覆寫檔不存在時唯一生效的規則。修改預設行為時改這裡，不要把預設寫回 `SKILL.md`。
+## Skill 退讓原則與外部覆蓋
 
-### `scripts/resolve-rules.mjs`
+devflow 只有一種自訂方式：外部 skill。每個 `SKILL.md` 的 H1 標題下都有同一段 `## External override`：若可用 skill 中有 `devflow-<skill>`（個人、專案、managed）或 `<plugin>:devflow-<skill>`，就改用它；被它呼叫回來跑預設時不再退讓。完整規則與各步驟的回傳契約在 `references/skill-overrides.md`。
 
-依「內建 → `DEVFLOW_ORG_DIR` → `~/.devflow/projects/<name>/`（以 `project.md` 的 `remote` 對應）→ `<repo>/.devflow/rules/`」合併規則，輸出每段規則的來源、警告，以及不可覆寫的底線。
+維護時注意：
 
-- 支援的插槽清單寫在檔案開頭的 `SLOTS`。
-- 腳本一律以 exit code 0 結束，因為 skill 的 `` !`command` `` 注入只要指令失敗，整個 skill 就不會載入；問題改用 `規則警告` 區段回報。
-- `DEVFLOW_HOME` 可取代 `~/.devflow`，方便測試。
+- **新增 Skill 時一定要加這段**，並把名稱換成新 skill 的資料夾名稱。可以用下面的指令檢查是否有漏：
 
-### `references/rule-slots.md`
+  ```bash
+  for f in skills/*/SKILL.md; do grep -q '## External override' "$f" || echo "缺少：$f"; done
+  ```
 
-說明各插槽由哪個 skill 套用、如何合併規則，以及哪些核心關卡不能被規則放寬。
-
-### 讀取規則的 Skills
-
-| Skill | 注入的插槽 |
-|---|---|
-| `develop` | `branching`、`review-routing`、`commit-message` |
-| `plan` | `branching`、`commit-message` |
-| `checkpoint` | `review-routing`、`commit-message` |
-| `rules` | 全部 |
-
-這些 Skill 用 `` !`node ${CLAUDE_PLUGIN_ROOT}/scripts/resolve-rules.mjs ...` `` 在載入時注入生效規則，並在 `allowed-tools` 預先核准同一個指令前綴。如果注入沒有出現，Skill 會改用 Bash 執行同一個指令。
-
-### 新增插槽
-
-1. 在 `rules/` 新增 `<slot>.md` 作為預設。
-2. 把插槽名稱加進 `scripts/resolve-rules.mjs` 的 `SLOTS`。
-3. 在 `references/rule-slots.md` 的插槽表寫出負責套用的 Skill。
-4. 在該 Skill 的注入指令加上插槽名稱，並說明如何套用。
-5. 更新 README、README_TW 與 `examples/overrides/`。
+- **想讓某個慣例可以被覆蓋，就把它做成獨立的 skill**。例如分支命名在 `branch`、commit message 在 `commit`、specialist review 的選擇在 `review-routing`。預設慣例直接寫在該 skill 裡，不另外放規則檔。
+- **外部覆蓋名稱刻意加上 `devflow-` 前綴**，避免使用者既有的 `commit`、`review` 等通用 skill 意外取代 devflow 步驟。plugin 內部的 skill 名稱因此可以維持簡短。
+- **閘門留在呼叫端**：`branch`、`commit`、`review-routing` 只負責「怎麼做」；計畫核准由 `develop`、commit 確認與 patch identity 驗證由 `checkpoint` 負責。這樣即使步驟被替換，人工確認與 commit 前後的 identity 檢查仍然有效。調整流程時不要把這些閘門搬進可被覆蓋的動作 skill。
+- **改動呼叫方式時同步更新契約**：`branch` 與 `commit` 以 `propose`／`apply` 兩種模式被呼叫。改了模式或回傳內容，要同步更新 `references/skill-overrides.md` 的契約表與 `examples/skill-overrides/`，否則既有的外部 skill 會接不上。
+- `scripts/list-overrides.mjs` 掃描個人（`CLAUDE_CONFIG_DIR` 或 `~/.claude`）與專案的 `.claude/skills/devflow-*`，供 `/devflow:overrides` 顯示；managed 與其他 plugin 提供的覆蓋只能從可用 skill 清單看到。腳本一律以 exit code 0 結束，因為 skill 的 `` !`command` `` 注入只要指令失敗，整個 skill 就不會載入。
 
 ## Hooks：自動事件
 
@@ -868,9 +849,9 @@ Node.js 腳本，從 stdin 讀取 Claude Code Hook 傳入的 JSON，取得被修
 | 改 formatter 支援 | `scripts/format-after-edit.mjs` | Hook 說明、README |
 | 改 Definition of Done | `skills/finish/SKILL.md` | `skills/develop`、review severity |
 | 改 review loop 次數 | `skills/develop/SKILL.md` | `skills/improve` 的文字是否仍一致 |
-| 改分支、specialist review 選擇或 commit message 的預設 | `rules/<slot>.md` | `references/rule-slots.md`、README |
-| 新增規則插槽 | `scripts/resolve-rules.mjs` 的 `SLOTS`、`rules/<slot>.md` | `references/rule-slots.md`、負責的 Skill、`examples/overrides/` |
-| 改規則查找位置或合併方式 | `scripts/resolve-rules.mjs` | `references/rule-slots.md`、README、`skills/rules` |
+| 改分支、commit 或 specialist review 選擇的預設 | `skills/branch`、`skills/commit`、`skills/review-routing` | `references/skill-overrides.md` 的契約、README |
+| 讓新的慣例可以被覆蓋 | 新增一個負責該步驟的 Skill | 呼叫它的 Skill、`references/skill-overrides.md`、`examples/skill-overrides/` |
+| 改外部 skill 覆蓋規則 | `references/skill-overrides.md` | 所有 `SKILL.md` 的 `## External override`、`scripts/list-overrides.mjs`、README |
 
 ## 建議的手動修改流程
 

@@ -2,23 +2,23 @@
 name: plan
 description: Split a selected solution into an ordered set of independently reviewable and committable execution plans, present the full set, and obtain explicit approval before coding. Use after solution discussion for every devflow development task; never bypass an unresolved solution decision.
 argument-hint: <risk, selected solution, and task>
-allowed-tools: Read, Grep, Glob, Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/resolve-rules.mjs:*)
+allowed-tools: Read, Grep, Glob
 ---
 
 # Plan
 
+## External override
+
+If an external skill named `devflow-plan` is available — listed as `devflow-plan` (organization, personal, or project) or as `<plugin>:devflow-plan` from another plugin — invoke it with the same arguments and follow it instead of the rest of this file. Do not yield when that skill itself sent you here to run the default. Otherwise follow this file strictly. Precedence, the contract an override must honor, and the gates that still apply are in `${CLAUDE_PLUGIN_ROOT}/references/skill-overrides.md`.
+
 Plan `$ARGUMENTS` without modifying files, staging changes, or committing.
 
-Read `${CLAUDE_PLUGIN_ROOT}/references/gate-contracts.md`, `${CLAUDE_PLUGIN_ROOT}/references/rule-slots.md`, and `${CLAUDE_PLUGIN_ROOT}/references/response-style.md` before producing user-facing output.
+Read `${CLAUDE_PLUGIN_ROOT}/references/gate-contracts.md`, `${CLAUDE_PLUGIN_ROOT}/references/skill-overrides.md`, and `${CLAUDE_PLUGIN_ROOT}/references/response-style.md` before producing user-facing output.
 
-## Effective rules
+## Branch and commit messages
 
-!`node ${CLAUDE_PLUGIN_ROOT}/scripts/resolve-rules.mjs --project "${CLAUDE_PROJECT_DIR}" branching commit-message`
-
-If this section is missing or shows an error, run the same command with Bash before planning.
-
-- Fill the plan set's `分支` field from the effective `branching` rules: the current branch when no new branch is needed, otherwise the exact branch to create and its base. Ask the user for any value the rule needs but the repository cannot supply, such as a ticket key.
-- Draft every plan's `Commit 訊息` to satisfy the effective `commit-message` rules.
+- Fill the plan set's `分支` field by invoking `devflow:branch propose` with the task. Use its result as is, and pass any question it raises, such as a missing ticket key, to the user.
+- Draft every plan's `Commit 訊息` by invoking `devflow:commit propose` once with all plans.
 
 If a meaningful solution decision exists but no explicit user selection is recorded, stop and return to `devflow:tradeoff`.
 

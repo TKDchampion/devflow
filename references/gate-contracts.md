@@ -67,7 +67,7 @@ Only an explicit user message selects an option. A recommendation is not approva
 執行計畫組
 已選方案：...
 核准狀態：等待使用者 | 已核准
-分支：沿用 <current branch> | 建立 <new branch>，base <ref>（規則來源：...）
+分支：沿用 <current branch> | 建立 <new branch>，base <ref>
 計畫數量：...
 
 計畫 1 — <name>

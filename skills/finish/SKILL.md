@@ -7,6 +7,10 @@ allowed-tools: Read, Grep, Glob
 
 # Finish
 
+## External override
+
+If an external skill named `devflow-finish` is available — listed as `devflow-finish` (organization, personal, or project) or as `<plugin>:devflow-finish` from another plugin — invoke it with the same arguments and follow it instead of the rest of this file. Do not yield when that skill itself sent you here to run the default. Otherwise follow this file strictly. Precedence, the contract an override must honor, and the gates that still apply are in `${CLAUDE_PLUGIN_ROOT}/references/skill-overrides.md`.
+
 Assess whether `$ARGUMENTS` is genuinely complete.
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/response-style.md` before producing user-facing output.

@@ -20,7 +20,7 @@ The most important rule: both the solution choice and the plan approval require 
 - [Reviewer agents reference](#reviewer-agents-reference)
 - [Auto-format hook](#auto-format-hook)
 - [Worked examples](#worked-examples)
-- [Override branching, review, and commit rules](#override-branching-review-and-commit-rules)
+- [Override steps with external skills](#override-steps-with-external-skills)
 - [Customization](#customization)
 - [Validation and troubleshooting](#validation-and-troubleshooting)
 - [Official documentation](#official-documentation)
@@ -30,8 +30,8 @@ The most important rule: both the solution choice and the plan approval require 
 This plugin ships:
 
 - 1 orchestrator skill: `develop`
-- 15 quality-gate skills that can also be used on their own, plus `rules` to inspect the effective rules
-- Branching, review-routing, and commit-message rules that an organization, a user, or a project can override, with built-in defaults for anything not overridden
+- 15 quality-gate skills that can also be used on their own, reusable `branch`, `commit`, and `review-routing` skills, and `overrides` to inspect which steps are overridden
+- A yield rule in every skill: an external skill named `devflow-<skill>` takes over that step; otherwise the plugin's skill is followed strictly
 - 5 standalone reviewer agents
 - LOW / MEDIUM / HIGH risk routing
 - A Solution / Trade-off / User Decision checkpoint
@@ -347,7 +347,10 @@ Reply in the same Claude Code session so the original skill instructions and dec
 | `test-review` | Check whether tests really cover the requirement and the risks | No |
 | `improve` | Fix valid findings and re-validate | Yes |
 | `finish` | Confirm each plan's review signal, commit, and final state | No |
-| `rules` | Show the override rules in effect for the current project and where each comes from | No |
+| `branch` | Propose or create the working branch (default: stay on the current branch) | Creates / switches branches |
+| `commit` | Draft commit messages; after human confirmation, commit the staged changes | Commits |
+| `review-routing` | Decide which specialist reviews run for each plan | No |
+| `overrides` | Show which steps are replaced by external `devflow-*` skills | No |
 
 The full invocation format is:
 
@@ -479,62 +482,59 @@ Findings use these severities:
 
 These map back to a 🟢 green, 🟡 yellow, or 🔴 red signal. Running `/devflow:review` on its own only produces the review and the commit gate — it will not modify code or commit by itself, though it may attach a not-yet-applied code/diff sample when the fix is clear.
 
-## Override branching, review, and commit rules
 
-devflow has three rule slots. An organization or project overrides only the slots it needs, without editing the plugin; every slot it leaves alone uses the built-in default.
+## Override steps with external skills
 
-| Slot | Controls | Built-in default |
+Every devflow step is a skill, and every skill follows a **yield rule**: if an external skill with the matching name exists, it is used instead; otherwise the plugin's procedure is followed strictly. Organization or personal conventions need no plugin edits and no separate rule files; write them as a skill.
+
+### Naming
+
+The external skill that replaces `devflow:<skill>` must be named `devflow-<skill>`:
+
+| Step | External skill name | Default |
 |---|---|---|
-| `branching` | Whether to create a branch, its name, and its base | Stay on the current branch |
-| `review-routing` | Which specialist reviews run for each plan | Security, performance, or test review chosen from risk and diff content |
-| `commit-message` | Commit message format and language | Follow the repository's existing convention |
+| Branching | `devflow-branch` | Stay on the current branch |
+| Commit and commit message | `devflow-commit` | Follow the repository's convention; `git commit -F` |
+| Specialist review selection | `devflow-review-routing` | Security, performance, or test review chosen from risk and diff |
+| Any other step | `devflow-<skill>`, for example `devflow-review` | That skill's built-in procedure |
 
-### Where rules live
+Generic skills such as `commit`, `review`, or `plan` never replace a devflow step; only a deliberately named `devflow-*` skill does.
 
-Lowest to highest priority:
+### Where to put it
 
-1. **Built-in**: the plugin's `rules/<slot>.md`
-2. **Organization**: the folder named by the `DEVFLOW_ORG_DIR` environment variable, set for example in the `env` block of `~/.claude/settings.json` or distributed through managed settings
-3. **User project**: `~/.devflow/projects/<any-name>/`, matched to a repository by the `remote` list in that folder's `project.md`. It stays outside the repository, so every worktree sees it
-4. **Repository**: `<repo>/.devflow/rules/`, committed and shared with the team
+| Scope | Location |
+|---|---|
+| Personal (all projects) | `~/.claude/skills/devflow-<skill>/SKILL.md` |
+| Project (committed, shared with the team) | `<repo>/.claude/skills/devflow-<skill>/SKILL.md` |
+| Organization | A skill with the same name from an organization plugin or managed settings |
 
-### Override file format
+A new or edited skill is picked up in a new session.
 
-One file per slot, named after the slot. The frontmatter `mode` sets how it merges:
+### Three ways to write one
 
-- `extend` (default): keep lower layers and append this file.
-- `replace`: discard lower layers and use only this file.
+- **Replace**: write your own procedure in the skill.
+- **Extend**: run your own checks, then invoke `devflow:<skill>` with the same arguments for the default procedure. devflow does not yield again when its own override calls it, so there is no loop.
+- **One project only**: make it a personal skill that first checks `git remote get-url origin` and hands back to `devflow:<skill>` for any other repository. The repository stays untouched and every worktree sees it.
 
-```markdown
----
-mode: extend
----
+`branch` and `commit` are called in two modes, `propose` (draft only, change nothing) and `apply` (run after approval or confirmation). An override must handle both or hand back to the default. What each step must return is in [`references/skill-overrides.md`](references/skill-overrides.md).
 
-- Always run `devflow:security-review` when the staged diff touches `src/payment/**`.
-```
+Examples are in [`examples/skill-overrides/`](examples/skill-overrides/):
 
-The user-project layer also needs a `project.md` naming the matching remote:
+- `devflow-commit`: extends the default to require a ticket in every message
+- `devflow-branch`: a personal skill that applies a naming convention to one project only
+- `devflow-review-routing`: adds path-based rules on top of the default routing
 
-```markdown
----
-remote:
-  - git@github.com:your-org/M1.git
----
-```
-
-Complete examples are in [`examples/overrides/`](examples/overrides/).
-
-### Check what is in effect
+### Check what is overridden
 
 ```text
-/devflow:rules
+/devflow:overrides
 ```
 
-It lists the detected project and remote, the effective rules for each slot with their source, and warnings such as a misspelled filename, an invalid `mode`, or a missing folder.
+It lists every devflow step with either the default or the external skill that replaces it, plus warnings such as a misspelled name or a missing `SKILL.md`.
 
 ### What cannot be overridden
 
-Rules only tune their own action. They never relax the core gates: explicit replies for the solution choice and plan-set approval, independent review of every plan, no commit on 🔴 red, a separate confirmation for every commit, and no automatic push, merge, rebase, or deploy. Any part of a rule that conflicts with these gates is ignored and reported.
+An external skill changes how a step is done, not the gates around it: explicit replies for the solution choice and plan-set approval, independent review of every plan, no commit on 🔴 red, a separate confirmation for every commit with the patch identity checked before and after, and no automatic push, merge, rebase, or deploy. Any part of an override that conflicts with these gates is ignored and reported.
 
 ## Customization
 

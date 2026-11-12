@@ -7,6 +7,10 @@ allowed-tools: Read, Grep, Glob
 
 # Grill
 
+## External override
+
+If an external skill named `devflow-grill` is available — listed as `devflow-grill` (organization, personal, or project) or as `<plugin>:devflow-grill` from another plugin — invoke it with the same arguments and follow it instead of the rest of this file. Do not yield when that skill itself sent you here to run the default. Otherwise follow this file strictly. Precedence, the contract an override must honor, and the gates that still apply are in `${CLAUDE_PLUGIN_ROOT}/references/skill-overrides.md`.
+
 Clarify `$ARGUMENTS` without modifying code or proposing a preferred implementation.
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/response-style.md` before producing user-facing output.

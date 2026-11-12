@@ -6,6 +6,10 @@ argument-hint: <change scope and risk>
 
 # Validate
 
+## External override
+
+If an external skill named `devflow-validate` is available — listed as `devflow-validate` (organization, personal, or project) or as `<plugin>:devflow-validate` from another plugin — invoke it with the same arguments and follow it instead of the rest of this file. Do not yield when that skill itself sent you here to run the default. Otherwise follow this file strictly. Precedence, the contract an override must honor, and the gates that still apply are in `${CLAUDE_PLUGIN_ROOT}/references/skill-overrides.md`.
+
 Validate `$ARGUMENTS` with executable evidence.
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/gate-contracts.md` and `${CLAUDE_PLUGIN_ROOT}/references/response-style.md` before producing user-facing output.

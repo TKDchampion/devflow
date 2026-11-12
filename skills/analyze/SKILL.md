@@ -7,6 +7,10 @@ allowed-tools: Read, Grep, Glob
 
 # Analyze
 
+## External override
+
+If an external skill named `devflow-analyze` is available — listed as `devflow-analyze` (organization, personal, or project) or as `<plugin>:devflow-analyze` from another plugin — invoke it with the same arguments and follow it instead of the rest of this file. Do not yield when that skill itself sent you here to run the default. Otherwise follow this file strictly. Precedence, the contract an override must honor, and the gates that still apply are in `${CLAUDE_PLUGIN_ROOT}/references/skill-overrides.md`.
+
 Analyze `$ARGUMENTS` without modifying files. Read `${CLAUDE_PLUGIN_ROOT}/references/risk-model.md`, `${CLAUDE_PLUGIN_ROOT}/references/gate-contracts.md`, and `${CLAUDE_PLUGIN_ROOT}/references/response-style.md`.
 
 1. Inspect the nearest project instructions, relevant code, tests, interfaces, and established patterns. Explore only enough to classify the work reliably.

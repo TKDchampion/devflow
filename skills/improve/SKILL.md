@@ -6,6 +6,10 @@ argument-hint: <accepted findings and current change>
 
 # Improve
 
+## External override
+
+If an external skill named `devflow-improve` is available — listed as `devflow-improve` (organization, personal, or project) or as `<plugin>:devflow-improve` from another plugin — invoke it with the same arguments and follow it instead of the rest of this file. Do not yield when that skill itself sent you here to run the default. Otherwise follow this file strictly. Precedence, the contract an override must honor, and the gates that still apply are in `${CLAUDE_PLUGIN_ROOT}/references/skill-overrides.md`.
+
 Improve `$ARGUMENTS` while preserving the selected solution and the active approved plan's scope.
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/response-style.md` before producing user-facing output.
