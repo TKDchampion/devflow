@@ -29,9 +29,10 @@
 這個 plugin 包含：
 
 - 1 個總控 Skill：`develop`
-- 15 個可獨立使用的品質關卡 Skills、可單獨重用的 `branch`、`commit` 與 `review-routing`，以及查看覆蓋狀態的 `overrides`
+- 16 個可獨立使用的品質關卡 Skills、可單獨重用的 `branch`、`commit` 與 `review-routing`，以及查看覆蓋狀態的 `overrides`
 - 每個 Skill 都採退讓原則：有名為 `devflow-<skill>` 的外部 skill 就用外部的，否則嚴格遵循 plugin
 - 5 個獨立 reviewer agents
+- 各階段固定使用的模型，並依每個 plan 本身的難度決定用 Sonnet 或 Opus 實作
 - LOW、MEDIUM、HIGH 三級風險路由
 - Solution／Trade-off／User Decision checkpoint
 - 可見的 workflow 與 plan 進度
@@ -334,7 +335,8 @@ B
 | `architecture`       | 分析現有架構、invariants、blast radius                | 否                        |
 | `tradeoff`           | 比較 2–3 個方案並等待使用者選擇                       | 否                        |
 | `plan`               | 切成多個可獨立 review／commit 的 plans 並等待整組核准 | 否                        |
-| `implement`          | 一次只實作一個已核准 plan                             | 是                        |
+| `implement`          | 一次只實作一個已核准 plan（Opus）                     | 是                        |
+| `implement-lite`     | 實作標記為 `實作模型：sonnet` 的 plan（Sonnet）       | 是                        |
 | `validate`           | 執行 lint、typecheck、tests、build                    | 可能修正 in-scope failure |
 | `verify`             | 啟動系統並觀察實際行為                                | 原則上否                  |
 | `review`             | 審查單一 plan 的 staged diff 並輸出紅黃綠 signal      | 否                        |
@@ -348,6 +350,26 @@ B
 | `commit`             | 草擬 commit message；人工確認後提交已 staged 變更     | Commit                    |
 | `review-routing`     | 決定每個 plan 要加跑哪些 specialist review            | 否                        |
 | `overrides`          | 顯示哪些步驟被外部 `devflow-*` skill 覆蓋             | 否                        |
+
+### 各階段使用的模型
+
+每個階段的模型寫在 frontmatter，不需要手動切換。請用 Opus 開 session。
+
+| 階段 | 模型 |
+| --- | --- |
+| `analyze`、`grill`、`architecture`、`tradeoff`、`plan` 與 architecture reviewer | Fable |
+| `implement`、`improve` 與 code、security、performance、test reviewers | Opus |
+| `implement-lite` | Sonnet |
+| 其餘 | 沿用當下生效的模型 |
+
+`plan` 會依每個 plan 本身的難度標上 `實作模型：sonnet` 或 `opus`，`develop` 依此呼叫 `implement-lite` 或 `implement`：
+
+- **`sonnet`**：照既有 pattern、範圍小且明確列出、沒有留給實作者的設計判斷。
+- **`opus`**：跨模組、併發或共享狀態、資料遷移、安全相關、public contract，或仍需判斷。不確定時選這個。
+
+核准計畫組時可以修改這個標記。plan 只會從 Sonnet 升級到 Opus：`implement-lite` 發現計畫比標記的困難時，或該 plan 拿到 🔴 紅燈時。若組織的 `availableModels` 不包含指定的模型，該設定會被略過，不會報錯。
+
+如果你用 `devflow-implement` 覆蓋了 `implement`，但沒有 `devflow-implement-lite`，所有 plan 都會經由 `devflow-implement` 跑在 Opus 上，不會走 Sonnet 路線，見[用外部 Skill 覆蓋步驟](#用外部-skill-覆蓋步驟)。完整規則在 [`references/model-routing.md`](references/model-routing.md)。
 
 完整呼叫格式是：
 
@@ -493,6 +515,7 @@ devflow 的每個步驟都是一個 skill，而且每個 skill 都採**退讓原
 | 切分支 | `devflow-branch` | 留在目前分支 |
 | Commit 與 commit message | `devflow-commit` | 沿用 repository 既有慣例，`git commit -F` |
 | 選擇 specialist review | `devflow-review-routing` | 依風險與 diff 內容選 security／performance／test |
+| 用較便宜的模型實作例行 plan | `devflow-implement-lite` | 與 `implement` 相同的流程，使用 Sonnet |
 | 其他任何步驟 | `devflow-<skill>`，例如 `devflow-review` | 該 skill 的內建流程 |
 
 一般的 `commit`、`review`、`plan` 這類 skill 不會取代 devflow，只有刻意取 `devflow-` 開頭的才會，所以不會被無意間覆蓋。
@@ -520,6 +543,19 @@ devflow 的每個步驟都是一個 skill，而且每個 skill 都採**退讓原
 - `devflow-commit`：延伸預設，強制 commit message 帶票號
 - `devflow-branch`：個人 skill，只對單一專案套用分支命名規則
 - `devflow-review-routing`：在預設路由上加路徑條件
+- `devflow-implement-lite`：讓標記為 Sonnet 的 plan 留在 Sonnet，同時套用你的 `devflow-implement` 規範
+
+### `implement` 與 `implement-lite`
+
+`implement-lite` 是用較便宜模型執行的 `implement`，所以覆蓋 `implement` 時也必須涵蓋它。devflow 的處理方式：
+
+| 你有的外部 skill | 標記為 `sonnet` 的 plan 經由 |
+|---|---|
+| `devflow-implement-lite` | `devflow-implement-lite`，使用 Sonnet |
+| 只有 `devflow-implement` | `devflow-implement`，使用 Opus；不使用 `implement-lite` |
+| 兩者都沒有 | 內建的 `implement-lite`，使用 Sonnet |
+
+標記為 `opus` 的 plan 一律走 `implement`，有 `devflow-implement` 時就由它處理。外部 skill 沒有設定 `model` 時，會跑在它所取代的 devflow skill 的模型上。
 
 ### 檢查覆蓋狀態
 

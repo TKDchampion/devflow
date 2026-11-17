@@ -2,6 +2,7 @@
 name: improve
 description: Apply confirmed review findings, simplify the resulting code when useful, and route the change back through affected checks. Use only after review identifies actionable issues or the user explicitly requests cleanup.
 argument-hint: <accepted findings and current change>
+model: opus
 ---
 
 # Improve

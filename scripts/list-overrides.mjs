@@ -72,7 +72,12 @@ out.push(`- 專案 skill 資料夾：${locations[1][1] || "無"}`);
 out.push("", "| devflow skill | 狀態 |", "|---|---|");
 for (const name of pluginSkills) {
   const hits = found.get(name);
-  out.push(`| \`devflow:${name}\` | ${hits ? `由 \`devflow-${name}\` 覆蓋（${hits.join("；")}）` : "預設"} |`);
+  let status = hits ? `由 \`devflow-${name}\` 覆蓋（${hits.join("；")}）` : "預設";
+  // See "The implement-lite fallback" in references/skill-overrides.md.
+  if (name === "implement-lite" && !hits && found.has("implement")) {
+    status = "不使用：沒有 `devflow-implement-lite`，所有計畫改由 `devflow-implement` 處理";
+  }
+  out.push(`| \`devflow:${name}\` | ${status} |`);
 }
 for (const [name, hits] of found) {
   if (hits.length > 1) {

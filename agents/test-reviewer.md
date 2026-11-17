@@ -3,7 +3,7 @@ name: test-reviewer
 description: Independently reviews whether tests prove the requested behavior, regressions, boundaries, and failure modes without adding tests itself.
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit, NotebookEdit
-model: inherit
+model: opus
 maxTurns: 20
 ---
 

@@ -30,9 +30,10 @@ The most important rule: both the solution choice and the plan approval require 
 This plugin ships:
 
 - 1 orchestrator skill: `develop`
-- 15 quality-gate skills that can also be used on their own, reusable `branch`, `commit`, and `review-routing` skills, and `overrides` to inspect which steps are overridden
+- 16 quality-gate skills that can also be used on their own, reusable `branch`, `commit`, and `review-routing` skills, and `overrides` to inspect which steps are overridden
 - A yield rule in every skill: an external skill named `devflow-<skill>` takes over that step; otherwise the plugin's skill is followed strictly
 - 5 standalone reviewer agents
+- A model pinned per stage, with each plan routed to Sonnet or Opus by its own difficulty
 - LOW / MEDIUM / HIGH risk routing
 - A Solution / Trade-off / User Decision checkpoint
 - Visible workflow and plan progress
@@ -337,7 +338,8 @@ Reply in the same Claude Code session so the original skill instructions and dec
 | `architecture` | Analyze existing architecture, invariants, blast radius | No |
 | `tradeoff` | Compare 2–3 solutions and wait for the user's choice | No |
 | `plan` | Split work into independently reviewable/committable plans and wait for approval of the whole set | No |
-| `implement` | Implement exactly one approved plan | Yes |
+| `implement` | Implement exactly one approved plan (Opus) | Yes |
+| `implement-lite` | Implement one approved plan tagged `實作模型：sonnet` (Sonnet) | Yes |
 | `validate` | Run lint, typecheck, tests, build | May fix in-scope failures |
 | `verify` | Start the system and observe actual behavior | Normally no |
 | `review` | Review one plan's staged diff and emit a red/yellow/green signal | No |
@@ -351,6 +353,26 @@ Reply in the same Claude Code session so the original skill instructions and dec
 | `commit` | Draft commit messages; after human confirmation, commit the staged changes | Commits |
 | `review-routing` | Decide which specialist reviews run for each plan | No |
 | `overrides` | Show which steps are replaced by external `devflow-*` skills | No |
+
+### Models per stage
+
+Each stage pins its model in frontmatter, so you never switch models by hand. Start the session on Opus.
+
+| Stage | Model |
+|---|---|
+| `analyze`, `grill`, `architecture`, `tradeoff`, `plan`, and the architecture reviewer | Fable |
+| `implement`, `improve`, and the code, security, performance, and test reviewers | Opus |
+| `implement-lite` | Sonnet |
+| Everything else | Whichever model is active at that point |
+
+`plan` tags every plan with `實作模型：sonnet` or `opus` based on that plan's own difficulty, and `develop` routes it to `implement-lite` or `implement`:
+
+- **`sonnet`**: follows an existing pattern, touches a small listed area, and leaves no design judgment open.
+- **`opus`**: crosses modules, involves concurrency or shared state, data migration, security, or a public contract, or still needs judgment. This is the choice when unsure.
+
+You can change a tag when approving the plan set. A plan only ever escalates from Sonnet to Opus: when `implement-lite` finds the plan harder than tagged, or when the plan gets a 🔴 red review. If your organization's `availableModels` excludes a pinned model, that pin is skipped without an error.
+
+If you override `implement` with `devflow-implement` but have no `devflow-implement-lite`, every plan runs through `devflow-implement` on Opus and the Sonnet route is not used. See [Override steps with external skills](#override-steps-with-external-skills). The full rules are in [`references/model-routing.md`](references/model-routing.md).
 
 The full invocation format is:
 
@@ -496,6 +518,7 @@ The external skill that replaces `devflow:<skill>` must be named `devflow-<skill
 | Branching | `devflow-branch` | Stay on the current branch |
 | Commit and commit message | `devflow-commit` | Follow the repository's convention; `git commit -F` |
 | Specialist review selection | `devflow-review-routing` | Security, performance, or test review chosen from risk and diff |
+| Routine implementation on the cheaper model | `devflow-implement-lite` | Same procedure as `implement`, on Sonnet |
 | Any other step | `devflow-<skill>`, for example `devflow-review` | That skill's built-in procedure |
 
 Generic skills such as `commit`, `review`, or `plan` never replace a devflow step; only a deliberately named `devflow-*` skill does.
@@ -523,6 +546,19 @@ Examples are in [`examples/skill-overrides/`](examples/skill-overrides/):
 - `devflow-commit`: extends the default to require a ticket in every message
 - `devflow-branch`: a personal skill that applies a naming convention to one project only
 - `devflow-review-routing`: adds path-based rules on top of the default routing
+- `devflow-implement-lite`: keeps Sonnet-tagged plans on Sonnet while applying your `devflow-implement` rules
+
+### `implement` and `implement-lite`
+
+`implement-lite` is `implement` on a cheaper model, so overriding `implement` must cover it too. devflow resolves the pair like this:
+
+| You have | Plans tagged `sonnet` run through |
+|---|---|
+| `devflow-implement-lite` | `devflow-implement-lite` on Sonnet |
+| Only `devflow-implement` | `devflow-implement` on Opus; `implement-lite` is not used |
+| Neither | The built-in `implement-lite` on Sonnet |
+
+Plans tagged `opus` always run through `implement`, and so through `devflow-implement` when it exists. An override that sets no `model` runs on the model of the devflow skill it replaces.
 
 ### Check what is overridden
 

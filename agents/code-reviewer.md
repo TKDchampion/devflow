@@ -3,7 +3,7 @@ name: code-reviewer
 description: Independently reviews the exact staged diff for one approved plan, finds correctness and regression risks, and recommends a red/yellow/green commit signal.
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit, NotebookEdit
-model: inherit
+model: opus
 maxTurns: 24
 ---
 

@@ -3,7 +3,7 @@ name: security-reviewer
 description: Independently reviews security-sensitive changes for exploitable trust-boundary, authorization, input, data, secret, and dependency failures.
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit, NotebookEdit
-model: inherit
+model: opus
 maxTurns: 24
 ---
 

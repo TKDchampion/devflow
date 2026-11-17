@@ -3,6 +3,7 @@ name: tradeoff
 description: Present viable implementation approaches and obtain an explicit user choice before coding. Use when two or more credible solutions differ meaningfully in architecture, data model, API, dependency, security, performance, maintainability, rollout, or reversibility.
 argument-hint: <analyzed task and architecture context>
 allowed-tools: Read, Grep, Glob
+model: fable
 ---
 
 # Tradeoff

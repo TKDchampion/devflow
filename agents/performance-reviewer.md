@@ -3,7 +3,7 @@ name: performance-reviewer
 description: Independently reviews performance-sensitive changes for complexity, query, allocation, caching, contention, and scalability regressions.
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit, NotebookEdit
-model: inherit
+model: opus
 maxTurns: 20
 ---
 

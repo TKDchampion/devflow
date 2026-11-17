@@ -32,6 +32,7 @@ devflow/
 │   ├── tradeoff/SKILL.md
 │   ├── plan/SKILL.md
 │   ├── implement/SKILL.md
+│   ├── implement-lite/SKILL.md
 │   ├── validate/SKILL.md
 │   ├── verify/SKILL.md
 │   ├── review/SKILL.md
@@ -54,6 +55,7 @@ devflow/
 ├── references/
 │   ├── risk-model.md
 │   ├── gate-contracts.md
+│   ├── model-routing.md
 │   ├── review-severity.md
 │   ├── response-style.md
 │   ├── skill-overrides.md
@@ -243,6 +245,30 @@ allowed-tools: Read, Grep, Glob
 - `argument-hint`：顯示給使用者看的參數提示。
 - `allowed-tools`：預先核准 Skill 可直接使用、不必逐次詢問的工具；它不會限制其他工具是否存在。唯讀 Gate 通常只預先核准 `Read`、`Grep`、`Glob`，並在 Skill 指示中禁止修改。
 - `disable-model-invocation`：設為 `true` 時，要求使用者明確呼叫，而不是由模型自行觸發。
+- `model`：這個 Skill 執行時使用的模型（`fable`、`opus`、`sonnet`、`haiku` 或完整 model ID）。設定只在當前回合有效，使用者送出下一則訊息時回到 session 模型。未設定的 Skill 沿用當下生效的模型。
+
+### 模型配置
+
+各階段的模型寫在 frontmatter，規則集中在 [`references/model-routing.md`](references/model-routing.md)：
+
+| 階段 | 檔案 | 模型 |
+|---|---|---|
+| 決策 | `analyze`、`grill`、`architecture`、`tradeoff`、`plan`、`architecture-reviewer` agent | `fable` |
+| 困難 plan 的實作與修正 | `implement`、`improve` | `opus` |
+| 例行 plan 的實作 | `implement-lite` | `sonnet` |
+| 審查 | `code-reviewer`、`security-reviewer`、`performance-reviewer`、`test-reviewer` agents | `opus` |
+| 其餘 | `develop`、`validate`、`verify`、`checkpoint`、`finish`、`branch`、`commit`、`review-routing`、`overrides` 與 review 類 Skill | 未設定 |
+
+維護時要注意的行為：
+
+- **未設定的 Skill 沿用當下模型**：`validate`、`verify`、`checkpoint` 在同一回合接在實作之後，所以會跑在該 plan 的實作模型上。回合結束後回到 session 模型，建議用 Opus 開 session。
+- **每個 plan 的實作模型由 `plan` 決定**：`執行計畫組` 的 `實作模型` 欄位是 `sonnet` 或 `opus`，`develop` 依此呼叫 `implement-lite` 或 `implement`。使用者核准時可以改。
+- **只會升級不會降級**：`implement-lite` 發現 plan 比標記的困難時會停下，改由 `implement` 接手；🔴 紅燈後的修正一律走 `opus`。
+- **外部覆蓋優先於標記**：只有 `devflow-implement`、沒有 `devflow-implement-lite` 時，所有 plan 都走 `implement`。見「Skill 退讓原則與外部覆蓋」。
+- **切換模型有 cache 成本**：prompt cache 依模型分開，主對話每換一次模型，新模型要重讀它沒看過的部分。Reviewer agents 有獨立 context，不受影響。
+- **指定的模型可能被略過**：組織的 `availableModels` 不包含該模型，或 auto mode 不支援該模型時，設定會被略過並沿用當下模型，不會報錯。
+
+要整體調降成本，把 `implement` 和 `improve` 改成 `sonnet`；要整體提高品質，把 `implement-lite` 改成 `opus`。改了模型要同步更新 `model-routing.md` 的表格與兩份 README。
 
 Skill 內容中的兩個特殊變數：
 
@@ -361,7 +387,8 @@ Grill 負責確認「要做什麼」，Architecture 和 Tradeoff 才負責「怎
 
 - 每個 plan 都必須是可獨立驗證、審查與 commit 的連貫增量。
 - 非平凡任務應切成多個 plans；真正不可再分的 LOW 任務可使用一個 plan，但要說明理由。
-- 每個 plan 都需要 Goal、Scope、Dependencies、Acceptance criteria、Validation、Runtime verification、Review target 與 Commit intent。
+- 每個 plan 都需要 Goal、Scope、Dependencies、Acceptance criteria、Validation、Runtime verification、Review target、實作模型與 Commit intent。
+- `實作模型` 依該 plan 本身的難度標記，不看任務整體的風險等級。判斷標準在 `references/model-routing.md` 的「Tagging a plan」，`plan` 只引用它；不確定時標 `opus`。
 - HIGH 任務另外覆蓋 interface、migration、compatibility、failure handling、observability、rollout／rollback 與安全風險。
 
 若使用者尚未完成重要方案選擇，必須回到 `devflow:tradeoff`。
@@ -392,6 +419,16 @@ Grill 負責確認「要做什麼」，Architecture 和 Tradeoff 才負責「怎
 若發現原方案不成立、需要擴大 scope 或出現新的重大決策，必須在安全邊界停止並回到 `devflow:tradeoff`。`implement` 不會自行 commit；commit 由 `checkpoint` 統一處理。
 
 通用開發原則可加在此處；專案特定規則通常更適合放在專案的 `.claude/CLAUDE.md`。
+
+### `skills/implement-lite/SKILL.md`
+
+[開啟 implement-lite](skills/implement-lite/SKILL.md)
+
+`implement` 的 Sonnet 版本，處理標記為 `實作模型：sonnet` 的 plan。它不複製實作規則，而是讀取並遵循 `skills/implement/SKILL.md`，所以實作規則只需要改 `implement` 一處。
+
+它多一條規則：發現 plan 需要未定的設計判斷、未列出的跨模組修改，或涉及併發、資料遷移、安全邏輯時，在安全邊界停止並回報，由 `develop` 改用 `implement` 繼續同一個 plan。這是換模型而不是改 scope，不需要重新核准計畫組。
+
+它的 `## External override` 段落與其他 Skill 不同，多了一層 fallback：沒有 `devflow-implement-lite` 但有 `devflow-implement` 時，交給 `devflow:implement`，不在這裡實作。
 
 ### `skills/validate/SKILL.md`
 
@@ -584,7 +621,7 @@ name: code-reviewer
 description: ...
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit, NotebookEdit
-model: inherit
+model: opus
 maxTurns: 24
 ---
 ```
@@ -595,7 +632,7 @@ maxTurns: 24
 - `description`：Agent 的能力與委派時機。
 - `tools`：可使用的工具。
 - `disallowedTools`：明確禁止的工具。
-- `model: inherit`：沿用主 Claude Code session 的模型。
+- `model`：Agent 使用的模型。Reviewer 用 `opus`，`architecture-reviewer` 用 `fable`；改成 `inherit` 則沿用主 session 的模型。完整配置見「模型配置」。
 - `maxTurns`：最多執行回合數。
 
 目前 reviewer 全部禁止 `Write`、`Edit`、`NotebookEdit`。維護時不要隨意移除這些限制，否則獨立審查可能變成邊看邊修改。
@@ -686,6 +723,19 @@ HIGH hard triggers 包括：
 
 新增欄位時，也要確認使用該 contract 的 Skills 知道如何填寫與讀取新欄位。
 
+### `references/model-routing.md`
+
+[開啟 model-routing](references/model-routing.md)
+
+模型規則的唯一出處：
+
+- 各階段使用的模型。
+- `實作模型` 的 `sonnet`／`opus` 判斷標準。
+- `develop` 如何依標記選擇 `implement` 或 `implement-lite`。
+- 只升級不降級的規則。
+
+`plan` 與 `develop` 都讀這份檔案。frontmatter 的 `model` 才是實際生效的設定，這份檔案只是說明，兩邊要保持一致。
+
 ### `references/response-style.md`
 
 [開啟 response-style](references/response-style.md)
@@ -753,6 +803,8 @@ devflow 只有一種自訂方式：外部 skill。每個 `SKILL.md` 的 H1 標�
   for f in skills/*/SKILL.md; do grep -q '## External override' "$f" || echo "缺少：$f"; done
   ```
 
+- **`implement-lite` 是唯一的例外**：它的段落多一層 fallback，不要用通用段落蓋掉。規則是：有 `devflow-implement-lite` 就用它；只有 `devflow-implement` 時，所有 plan 不論標記都走 `implement`，不使用 `implement-lite`；兩者都沒有才依 `實作模型` 標記路由。這條規則的出處是 `references/skill-overrides.md` 的「The implement-lite fallback」，`develop`、`implement-lite`、`overrides` 與 `scripts/list-overrides.mjs` 都依它運作，修改時要一起改。
+- **外部 skill 沿用被取代 Skill 的模型**：devflow Skill 的 `model` 在它被呼叫時就生效，之後才退讓，所以外部 skill 沒有設定 `model` 時會跑在同一個模型上。外部 skill 交回 `devflow:implement` 會切到 `opus`，要留在 `sonnet` 就交回 `devflow:implement-lite`。
 - **想讓某個慣例可以被覆蓋，就把它做成獨立的 skill**。例如分支命名在 `branch`、commit message 在 `commit`、specialist review 的選擇在 `review-routing`。預設慣例直接寫在該 skill 裡，不另外放規則檔。
 - **外部覆蓋名稱刻意加上 `devflow-` 前綴**，避免使用者既有的 `commit`、`review` 等通用 skill 意外取代 devflow 步驟。plugin 內部的 skill 名稱因此可以維持簡短。
 - **閘門留在呼叫端**：`branch`、`commit`、`review-routing` 只負責「怎麼做」；計畫核准由 `develop`、commit 確認與 patch identity 驗證由 `checkpoint` 負責。這樣即使步驟被替換，人工確認與 commit 前後的 identity 檢查仍然有效。調整流程時不要把這些閘門搬進可被覆蓋的動作 skill。
@@ -838,6 +890,9 @@ Node.js 腳本，從 stdin 讀取 Claude Code Hook 傳入的 JSON，取得被修
 | 改 Plugin 名稱 | `.claude-plugin/plugin.json` | 所有 namespace、README、本文件、資料夾與 ZIP |
 | 改風險定義 | `references/risk-model.md` | `skills/analyze`、`skills/develop`、README |
 | 改工作流順序 | `skills/develop/SKILL.md` | 對應 Skills、README |
+| 改各階段模型 | 各 Skill 與 Agent frontmatter 的 `model` | `references/model-routing.md`、本文件「模型配置」、README |
+| 改實作模型的判斷或路由規則 | `references/model-routing.md` | `skills/plan`、`skills/develop`（Model routing）、`skills/implement-lite`、`gate-contracts.md`、README |
+| 改 `implement-lite` 的覆蓋 fallback | `references/skill-overrides.md` | `skills/develop`、`skills/implement-lite`、`skills/overrides`、`scripts/list-overrides.mjs`、README |
 | 改 User Decision Gate | `skills/tradeoff/SKILL.md`、`skills/plan/SKILL.md` | `skills/develop`、`gate-contracts.md` |
 | 改 plan commit gate | `skills/checkpoint/SKILL.md` | `skills/review`、`review-severity.md`、`skills/finish` |
 | 改輸出格式 | `references/gate-contracts.md` | 所有讀寫該 contract 的 Skills |

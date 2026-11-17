@@ -22,5 +22,6 @@ Present the result in Traditional Chinese without modifying any file:
 
 1. Every devflow skill and whether it uses the default or an override, with the override's source.
 2. Add overrides the script cannot see: any skill in your available-skills list named `devflow-<name>` or `<plugin>:devflow-<name>` whose `<name>` is a devflow skill. These come from managed settings or other plugins.
-3. Every warning, with the likely fix, such as a misspelled name or a missing `SKILL.md`.
-4. If the user expected an override that is not listed, give the locations and naming rule from `skill-overrides.md`, and remind them that a new skill is picked up in a new session.
+3. The `implement-lite` fallback from `skill-overrides.md`, counting overrides from every source: if `devflow-implement` is available and `devflow-implement-lite` is not, report that `devflow:implement-lite` is not used, that plans tagged `實作模型：sonnet` run through `devflow-implement` on the model `implement` pins, and that adding a `devflow-implement-lite` restores the cheaper model.
+4. Every warning, with the likely fix, such as a misspelled name or a missing `SKILL.md`.
+5. If the user expected an override that is not listed, give the locations and naming rule from `skill-overrides.md`, and remind them that a new skill is picked up in a new session.

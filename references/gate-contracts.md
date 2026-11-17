@@ -78,6 +78,7 @@ Only an explicit user message selects an option. A recommendation is not approva
   驗證方式：...
   Runtime 驗證：...
   Review 重點：...
+  實作模型：sonnet | opus — <原因>
   Commit 訊息：<message>
 
 計畫 2 — <name>
@@ -86,7 +87,7 @@ Only an explicit user message selects an option. A recommendation is not approva
 跨計畫回復方式：...
 ```
 
-Each plan is an ordered, independently reviewable and committable unit. Approval applies to the complete plan set, the branch action, scopes, and proposed commit messages. Plan-set approval never authorizes `git commit`; every plan requires a separate explicit user confirmation after its exact staged diff and review result are shown. It also does not authorize scope expansion, force-push, push, merge, deploy, or unrelated changes.
+Each plan is an ordered, independently reviewable and committable unit. Approval applies to the complete plan set, the branch action, scopes, each plan's `實作模型` tag, and proposed commit messages. The tag selects the implementing skill as described in `${CLAUDE_PLUGIN_ROOT}/references/model-routing.md`, and the user may change it when approving. Plan-set approval never authorizes `git commit`; every plan requires a separate explicit user confirmation after its exact staged diff and review result are shown. It also does not authorize scope expansion, force-push, push, merge, deploy, or unrelated changes.
 
 ## Validation contract
 

@@ -3,6 +3,7 @@ name: grill
 description: Clarify materially ambiguous or high-risk software requirements before architecture and solution selection. Use when unknowns affect scope, security, data behavior, compatibility, failure handling, rollout, or acceptance criteria; do not use for trivial preferences.
 argument-hint: <task and known unknowns>
 allowed-tools: Read, Grep, Glob
+model: fable
 ---
 
 # Grill

@@ -3,7 +3,7 @@ name: architecture-reviewer
 description: Independently maps architecture, invariants, dependencies, and blast radius for high-risk design work before a solution is selected.
 tools: Read, Grep, Glob
 disallowedTools: Write, Edit, NotebookEdit
-model: inherit
+model: fable
 maxTurns: 20
 ---
 

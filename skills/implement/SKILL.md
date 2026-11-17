@@ -2,6 +2,7 @@
 name: implement
 description: Implement exactly one active plan from an explicitly approved execution plan set with minimal, pattern-consistent changes and appropriate tests. Use only after required clarification, solution selection, and plan-set approval.
 argument-hint: <approved plan number, task, selected solution, and plan scope>
+model: opus
 ---
 
 # Implement

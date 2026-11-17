@@ -3,6 +3,7 @@ name: architecture
 description: Map the current architecture, invariants, integration boundaries, and change impact before solution comparison. Use for HIGH-risk work, cross-service changes, data-model redesigns, large refactors, concurrency, or changes with a broad blast radius.
 argument-hint: <clarified task>
 allowed-tools: Read, Grep, Glob
+model: fable
 ---
 
 # Architecture

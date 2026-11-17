@@ -3,6 +3,7 @@ name: analyze
 description: Analyze a software request before coding, identify scope and constraints, classify LOW/MEDIUM/HIGH risk, detect ambiguity and meaningful implementation decisions, and select required quality gates. Use at the start of development or whenever requirements materially change.
 argument-hint: <task or changed requirement>
 allowed-tools: Read, Grep, Glob
+model: fable
 ---
 
 # Analyze

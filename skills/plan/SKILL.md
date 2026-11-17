@@ -3,6 +3,7 @@ name: plan
 description: Split a selected solution into an ordered set of independently reviewable and committable execution plans, present the full set, and obtain explicit approval before coding. Use after solution discussion for every devflow development task; never bypass an unresolved solution decision.
 argument-hint: <risk, selected solution, and task>
 allowed-tools: Read, Grep, Glob
+model: fable
 ---
 
 # Plan
@@ -13,7 +14,7 @@ If an external skill named `devflow-plan` is available — listed as `devflow-pl
 
 Plan `$ARGUMENTS` without modifying files, staging changes, or committing.
 
-Read `${CLAUDE_PLUGIN_ROOT}/references/gate-contracts.md`, `${CLAUDE_PLUGIN_ROOT}/references/skill-overrides.md`, and `${CLAUDE_PLUGIN_ROOT}/references/response-style.md` before producing user-facing output.
+Read `${CLAUDE_PLUGIN_ROOT}/references/gate-contracts.md`, `${CLAUDE_PLUGIN_ROOT}/references/model-routing.md`, `${CLAUDE_PLUGIN_ROOT}/references/skill-overrides.md`, and `${CLAUDE_PLUGIN_ROOT}/references/response-style.md` before producing user-facing output.
 
 ## Branch and commit messages
 
@@ -34,4 +35,8 @@ Split the work into the smallest useful ordered set of plans:
 
 Every plan must be concrete and consistent with the selected solution. Mention files only when repository inspection supports them. Separate required work from optional follow-ups. Identify likely shared files so execution can avoid mixing two plans in one diff.
 
-Return the `執行計畫組` contract from `${CLAUDE_PLUGIN_ROOT}/references/gate-contracts.md` with `核准狀態：等待使用者`. Emit `工作流程進度`, ask for one explicit approval of the complete set, and stop. Only a later explicit response can change the status to `已核准`; silence or prior solution approval is not plan approval. Plan approval covers the branch action, scope, and proposed commit messages only. It never replaces the separate human commit confirmation required after each plan review.
+## Implementation model
+
+Tag every plan with `實作模型：sonnet` or `實作模型：opus` and a one-line reason, using the criteria under "Tagging a plan" in `model-routing.md`. Judge each plan on its own difficulty, not on the task's risk level. When unsure, tag `opus`. A plan tagged `sonnet` must leave no design decision to the implementer; if it does, tighten the plan or tag it `opus`.
+
+Return the `執行計畫組` contract from `${CLAUDE_PLUGIN_ROOT}/references/gate-contracts.md` with `核准狀態：等待使用者`. Emit `工作流程進度`, ask for one explicit approval of the complete set, and stop. Only a later explicit response can change the status to `已核准`; silence or prior solution approval is not plan approval. Plan approval covers the branch action, scope, `實作模型` tags, and proposed commit messages only; the user may change any tag when approving. It never replaces the separate human commit confirmation required after each plan review.
